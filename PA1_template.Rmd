@@ -1,0 +1,127 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+html_document:
+keep_md: true
+---
+
+## Loading and preprocessing the data
+
+```{r}
+# read frmom csv file in working directory
+data <- read.csv("activity.csv")
+
+# re-format dates
+data$date <- as.Date(data$date, "%Y-%m-%d")
+data$date <- strftime(data$date, "%d-%m-%Y")
+head(data)
+```
+
+## What is mean total number of steps taken per day?
+
+Calculate the total number of steps taken per day:
+```{R}
+library(plyr)
+daily_totals <- ddply(data[,1:2], .(date), colwise(sum))
+head(daily_totals)
+```
+
+Make a histogram of the total number of steps taken each day:
+```{R}
+hist(daily_totals$steps, main="Histogram of steps per day", xlab="Steps per day")
+```
+
+Calculate and report the mean and median of the total number of steps taken per day:
+
+```{R}
+mean_steps <- mean(daily_totals$steps, na.rm = TRUE)
+mean_steps
+median_steps <- median(daily_totals$steps, na.rm = TRUE)
+median_steps
+```
+
+## What is the average daily activity pattern?
+
+Make a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
+
+```{R}
+# calculate mean steps per interval
+interval_means <- ddply(data, ~interval, summarise, mean_steps=mean(steps, na.rm=TRUE))
+head(interval_means)
+
+# plot average steps throughout the day
+plot(interval_means$interval, interval_means$mean_steps, type = "l", xlab = "Interval", ylab = "Mean steps")
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{R}
+interval_means[which.max(interval_means$mean_steps),]
+```
+
+## Imputing missing values
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 𝙽𝙰s)
+
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{R}
+# replace NA values with mean steps for that interval across all days
+data$steps[is.na(data$steps)] <- interval_means$mean_steps[match(data$interval[is.na(data$steps)],interval_means$interval)]
+```
+
+Make a histogram of the total number of steps taken each day:
+```{R}
+# re-calculate the daily totals
+daily_totals <- ddply(data[,1:2], .(date), colwise(sum))
+head(daily_totals)
+
+# show in a histogram
+hist(daily_totals$steps, main="Histogram of steps per day", xlab="Steps per day")
+```
+
+Calculate and report the mean and median total number of steps taken per day:
+```{R}
+mean_steps <- mean(daily_totals$steps, na.rm = TRUE)
+mean_steps
+median_steps <- median(daily_totals$steps, na.rm = TRUE)
+median_steps
+```
+
+Do these values differ from the estimates from the first part of the assignment?  
+*The  median has changed, but the mean has stayed the same.*
+
+What is the impact of imputing missing data on the estimates of the total daily number of steps?  
+*No impact.*
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+```{R}
+# get days of the week
+data$date <- as.Date(data$date, "%d-%m-%Y")
+data$day <- weekdays(data$date)
+
+# replace day of the week with ether “weekday” or “weekend”
+data$day <- sub("(Monday|Tuesday|Wednesday|Thursday|Friday)", "Weekday", data$day)
+data$day <- sub("(Saturday|Sunday)", "Weekend", data$day)
+data$day <- as.factor(data$day)
+```
+
+Make a panel plot containing a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+```{R}
+# calculate average interval steps on weekends and weekdays
+library(dplyr)
+day_interval_means <- data %>% group_by(day, interval) %>% 
+    summarise(mean_steps = mean(steps))
+
+# plot line graph on two panels
+library(lattice)
+xyplot(mean_steps ~ interval|day, 
+    data = day_interval_means,
+    type = "l",
+    xlab = "Interval",
+    ylab = "Number of steps",
+    layout=c(1,2))
+```
+
